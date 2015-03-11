@@ -46,6 +46,47 @@ public class JsonPointer {
         return escapedReferenceToken.toString();
     }
 
+    /**
+     * Add or replace a value at the referenced location in the specified
+     * {@code JsonStructure}.
+     * <ol>
+     * <li>If the reference is the target {@code JsonStructure}, the value,
+     * which must be the same type as the target, is returned.</li>
+     * <li>If the reference is an index to an array, the value is inserted into
+     * the array at the index. If the index is specified with a "-", or if the
+     * index is equal to the size of the array, the value is appended to the
+     * array.</li>
+     * <li>If the reference is a name of a {@code JsonObject}, and the
+     * referenced value exists, the value is replaced by the specified value. If
+     * it does not exists, a new name/value pair is added to the object.</li>
+     * </ol>
+     *
+     * @param target
+     *            the target {@code JsonStructure}
+     * @param value
+     *            the value to be added
+     * @return the resultant JsonStructure
+     * @throws IndexOutOfBoundsException
+     *             if the index to the array is out of range
+     */
+    public JsonStructure add(JsonStructure target, JsonValue value) {
+        JsonObjectBuilder objectBuilder = traverseAndCopyJsonObject(target, 1, value);
+        return objectBuilder.build();
+    }
+
+    private JsonObjectBuilder traverseAndCopyJsonObject(JsonValue current, int currentTokenIndex, JsonValue value) {
+        //trivial case
+        if(currentTokenIndex == tokens.length-1) {
+            JsonObjectBuilder objectBuilder = Json
+                    .createObjectBuilder((JsonObject) current);
+            objectBuilder.add(tokens[tokens.length-1], value);
+            return objectBuilder;
+        } else {
+            JsonObjectBuilder copiedObject = traverseAndCopyJsonObject(getNextJsonValue(current, tokens[currentTokenIndex]), currentTokenIndex + 1, value);
+            return Json.createObjectBuilder((JsonObject)current).add(tokens[currentTokenIndex], copiedObject);
+        }
+    }
+    
     public JsonValue getValue(JsonValue target) {
 
         if ((this.pointer == null) || this.pointer.isEmpty()) {
