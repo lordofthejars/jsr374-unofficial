@@ -1,7 +1,15 @@
 package org.glassfish.json.tests;
 
+import static org.junit.Assert.assertThat;
+import static org.junit.Assert.fail;
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.nullValue;
+import static org.hamcrest.CoreMatchers.instanceOf;
+
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.util.Arrays;
+import java.util.Collection;
 
 import javax.json.Json;
 import javax.json.JsonObject;
@@ -10,147 +18,64 @@ import javax.json.JsonReader;
 import javax.json.JsonString;
 import javax.json.JsonValue;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
-public class JsonPointerTest extends TestCase {
+@RunWith(Parameterized.class)
+public class JsonPointerTest {
 
-    public JsonPointerTest(String testName) {
-        super(testName);
-    }
-
-
-    public void testEmptyJsonPointer() throws Exception {
-        JsonObject rfc6901Example = JsonPointerTest.readRfc6901Example();
-        JsonPointer jsonPointer = new JsonPointer("");
-        JsonValue result = jsonPointer.getValue(rfc6901Example);
-        assertEquals(rfc6901Example, result);
-    }
-
-    public void testReturnAnArray() throws Exception {
-        JsonObject rfc6901Example = JsonPointerTest.readRfc6901Example();
-        JsonPointer jsonPointer = new JsonPointer("/foo");
-        JsonValue result = jsonPointer.getValue(rfc6901Example);
-        assertEquals(rfc6901Example.getJsonArray("foo"), result);
-    }
-
-    public void testReturnArrayIndex() throws Exception {
-        JsonObject rfc6901Example = JsonPointerTest.readRfc6901Example();
-        JsonPointer jsonPointer = new JsonPointer("/foo/0");
-        JsonValue result = jsonPointer.getValue(rfc6901Example);
-        assertEquals(rfc6901Example.getJsonArray("foo").getString(0), ((JsonString)result).getString());
-    }
-
-    public void testReturnOutOfBoundsException() throws Exception {
-
-        JsonObject rfc6901Example = JsonPointerTest.readRfc6901Example();
-        JsonPointer jsonPointer = new JsonPointer("/foo/5");
-
-        try {
-            JsonValue result = jsonPointer.getValue(rfc6901Example);
-            fail("Should have thrown an IndexOutOfBoundsException");
-        } catch(IndexOutOfBoundsException e) {
-        }
-    }
-
-    public void testExceptionGettingArrayFromNotArrayObject() throws Exception {
-        JsonObject rfc6901Example = JsonPointerTest.readRfc6901Example();
-        JsonPointer jsonPointer = new JsonPointer("/p/1");
-
-        try {
-            JsonValue result = jsonPointer.getValue(rfc6901Example);
-            fail("Should have thrown an IllegalArgumentException");
-        } catch(IllegalArgumentException e) {
-        }
-    }
-
-    public void testRootPath() throws Exception {
-        JsonObject rfc6901Example = JsonPointerTest.readRfc6901Example();
-        JsonPointer jsonPointer = new JsonPointer("/");
-        JsonValue result = jsonPointer.getValue(rfc6901Example);
-        assertEquals(rfc6901Example.getJsonNumber(""), result);
-    }
-
-    public void testSlashSubstitution() throws Exception {
-        JsonObject rfc6901Example = JsonPointerTest.readRfc6901Example();
-        JsonPointer jsonPointer = new JsonPointer("/a~1b");
-        JsonValue result = jsonPointer.getValue(rfc6901Example);
-        assertEquals(rfc6901Example.getJsonNumber("a/b"), result);
-    }
+    private static JsonObject rfc6901Example;
     
-    public void testTildeSubstitution() throws Exception {
-        JsonObject rfc6901Example = JsonPointerTest.readRfc6901Example();
-        JsonPointer jsonPointer = new JsonPointer("/m~0n");
-        JsonValue result = jsonPointer.getValue(rfc6901Example);
-        assertEquals(rfc6901Example.getJsonNumber("m~n"), result);
+    @Parameters(name = "{index}: ({0})={1}")
+    public static Iterable<Object[]> data() throws Exception {
+        rfc6901Example = JsonPointerTest.readRfc6901Example();
+        return Arrays.asList(new Object[][] { 
+                 {new JsonPointer(""), rfc6901Example, null },
+                 {new JsonPointer("/foo"), rfc6901Example.getJsonArray("foo"), null},
+                 {new JsonPointer("/foo/0"), rfc6901Example.getJsonArray("foo").get(0), null},
+                 {new JsonPointer("/foo/5"), null, IndexOutOfBoundsException.class},
+                 {new JsonPointer("/p/1"), null, IllegalArgumentException.class},
+                 {new JsonPointer("/"), rfc6901Example.getJsonNumber(""), null},
+                 {new JsonPointer("/a~1b"), rfc6901Example.getJsonNumber("a/b"), null},
+                 {new JsonPointer("/m~0n"), rfc6901Example.getJsonNumber("m~n"), null},
+                 {new JsonPointer("/c%d"), rfc6901Example.getJsonNumber("c%d"), null},
+                 {new JsonPointer("/e^f"), rfc6901Example.getJsonNumber("e^f"), null},
+                 {new JsonPointer("/g|h"), rfc6901Example.getJsonNumber("g|h"), null},
+                 {new JsonPointer("/i\\j"), rfc6901Example.getJsonNumber("i\\j"), null},
+                 {new JsonPointer("/k\"l"), rfc6901Example.getJsonNumber("k\"l"), null},
+                 {new JsonPointer("/ "), rfc6901Example.getJsonNumber(" "), null},
+                 {new JsonPointer("/notexists"), null, IllegalArgumentException.class},
+                 {new JsonPointer("/s/t"), null, IllegalArgumentException.class},
+                 {new JsonPointer("/o"), JsonObject.NULL, null}
+           });
     }
 
-    public void testWithPercentage() throws Exception {
-        JsonObject rfc6901Example = JsonPointerTest.readRfc6901Example();
-        JsonPointer jsonPointer = new JsonPointer("/c%d");
-        JsonValue result = jsonPointer.getValue(rfc6901Example);
-        assertEquals(rfc6901Example.getJsonNumber("c%d"), result);
+    private JsonPointer pointer;
+    private JsonValue expected;
+    private Class<? extends Exception> expectedException;
+
+    public JsonPointerTest(JsonPointer pointer, JsonValue expected, Class<? extends Exception> expectedException) {
+        super();
+        this.pointer = pointer;
+        this.expected = expected;
+        this.expectedException = expectedException;
     }
 
-    public void testWithCaret() throws Exception {
-        JsonObject rfc6901Example = JsonPointerTest.readRfc6901Example();
-        JsonPointer jsonPointer = new JsonPointer("/e^f");
-        JsonValue result = jsonPointer.getValue(rfc6901Example);
-        assertEquals(rfc6901Example.getJsonNumber("e^f"), result);
-    }
-
-    public void testWithPipe() throws Exception {
-        JsonObject rfc6901Example = JsonPointerTest.readRfc6901Example();
-        JsonPointer jsonPointer = new JsonPointer("/g|h");
-        JsonValue result = jsonPointer.getValue(rfc6901Example);
-        assertEquals(rfc6901Example.getJsonNumber("g|h"), result);
-    }
-
-    public void testWithDoubleSlash() throws Exception {
-        JsonObject rfc6901Example = JsonPointerTest.readRfc6901Example();
-        JsonPointer jsonPointer = new JsonPointer("/i\\j");
-        JsonValue result = jsonPointer.getValue(rfc6901Example);
-        assertEquals(rfc6901Example.getJsonNumber("i\\j"), result);
-    }
-
-    public void testWithQuote() throws Exception {
-        JsonObject rfc6901Example = JsonPointerTest.readRfc6901Example();
-        JsonPointer jsonPointer = new JsonPointer("/k\"l");
-        JsonValue result = jsonPointer.getValue(rfc6901Example);
-        assertEquals(rfc6901Example.getJsonNumber("k\"l"), result);
-    }
-
-    public void testWhiteChar() throws Exception {
-        JsonObject rfc6901Example = JsonPointerTest.readRfc6901Example();
-        JsonPointer jsonPointer = new JsonPointer("/ ");
-        JsonValue result = jsonPointer.getValue(rfc6901Example);
-        assertEquals(rfc6901Example.getJsonNumber(" "), result);
-    }
-
-    public void testShouldThrowExceptionIfNodeNotFound() throws Exception {
-        JsonObject rfc6901Example = JsonPointerTest.readRfc6901Example();
-        JsonPointer jsonPointer = new JsonPointer("/notexist");
+    @Test
+    public void shouldEvaluateJsonPointerExpressions() {
         try {
-            JsonValue result = jsonPointer.getValue(rfc6901Example);
-            fail("Should have thrown an IllegalArgumentException");
-        } catch(IllegalArgumentException e) {
+            JsonValue result = pointer.getValue(rfc6901Example);
+            assertThat(result, is(expected));
+            assertThat(expectedException, nullValue());
+        } catch(Exception e) {
+            if(expectedException == null) {
+                fail(e.getMessage());
+            } else {
+                assertThat(e, instanceOf(expectedException));
+            }
         }
-    }
-
-    public void testShouldThrowExceptionIfArrayIsFoundInsteadOfObject() throws Exception {
-        JsonObject rfc6901Example = JsonPointerTest.readRfc6901Example();
-        JsonPointer jsonPointer = new JsonPointer("/s/t");
-        try {
-            JsonValue result = jsonPointer.getValue(rfc6901Example);
-            fail("Should have thrown an IllegalArgumentException");
-        } catch(IllegalArgumentException e) {
-        }
-    }
-    
-    public void testReturningNullValue() throws Exception {
-        JsonObject rfc6901Example = JsonPointerTest.readRfc6901Example();
-        JsonPointer jsonPointer = new JsonPointer("/o");
-        JsonValue result = jsonPointer.getValue(rfc6901Example);
-        assertEquals(rfc6901Example.get("o"), result);
     }
 
     static JsonObject readRfc6901Example() throws Exception {

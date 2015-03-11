@@ -3,68 +3,80 @@ package javax.json;
 public class JsonPointer {
 
     private String pointer;
+    private String[] tokens;
 
     public JsonPointer(final String pointer) {
         this.pointer = pointer;
+
+        tokens = pointer.split("/", -1); // keep the trailing blanks
+        if (!"".equals(tokens[0])) {
+            throw new JsonException(
+                    "A non-empty JSON pointer must begin with a '/'");
+        }
+        for (int i = 1; i < tokens.length; i++) { // start from 1
+            tokens[i] = escapeChars(tokens[i]);
+        }
     }
 
-    /**
-     * Return the value at the referenced location
-     * in the specified {@code JsonValue}
-     *
-     * @param target the {@code JsonValue} referenced by this {@code JsonPointer}
-     *
-     * @return the {@code JsonValue} referenced by this {@code JsonPointer}
-     */
+    private String escapeChars(String token) {
+
+        StringBuilder escapedReferenceToken = new StringBuilder();
+
+        for (int i = 0; i < token.length(); i++) {
+            char ch = token.charAt(i);
+            if (ch == '~') {
+                if (i + 1 == token.length()) {
+                    escapedReferenceToken.append(ch);
+                } else {
+                    char index = token.charAt(i + 1);
+                    if (index == '0') {
+                        escapedReferenceToken.append("~");
+                        i++;
+                    } else if (index == '1') {
+                        escapedReferenceToken.append("/");
+                        i++;
+                    } else {
+                        escapedReferenceToken.append(ch);
+                    }
+                }
+            } else {
+                escapedReferenceToken.append(ch);
+            }
+        }
+        return escapedReferenceToken.toString();
+    }
+
     public JsonValue getValue(JsonValue target) {
 
-        // First quick checks for well-known 'empty' pointer
         if ((this.pointer == null) || this.pointer.isEmpty()) {
             return target;
         }
 
-        // And then quick validity check:
-        if (!pointer.isEmpty() && pointer.charAt(0) != '/') {
-            throw new IllegalArgumentException("Invalid input: JSON Pointer expression must start with '/': "+"\""+pointer+"\"");
+        JsonValue current = target;
+        for (int i = 1; i < tokens.length; i++) {
+            current = getNextJsonValue(current, tokens[i]);
         }
-
-        StringBuilder referenceToken = new StringBuilder();
-        for (int i=1; i < this.pointer.length(); i++) {   // 1 to skip first /
-            char ch = this.pointer.charAt(i);
-            if (ch == '/') {
-                JsonPointer jsonPointer = new JsonPointer(this.pointer.substring(i));
-                return jsonPointer.getValue(getNextJsonValue(target, referenceToken.toString()));
-            } else if (ch == '~') {
-                // handle escaping ~0, ~1
-                if (i+1 == this.pointer.length()) {
-                    throw new IllegalArgumentException("Illegal escaping: expected ~0 or ~1, but got only ~ in pointer="+this.pointer);
-                }
-                ch = pointer.charAt(++i);
-                if (ch == '0') {
-                    referenceToken.append('~');
-                } else if (ch == '1') {
-                    referenceToken.append('/');
-                } else {
-                    throw new IllegalArgumentException("Illegal escaping: expected ~0 or ~1, but got ~"+ch+" in pointer="+this.pointer);
-                }
-            } else {
-                referenceToken.append(ch);
-            }
+        if (current == null) {
+            throw new IllegalArgumentException(
+                    "No value for reference pointer=" + this.pointer
+                            + " for value=" + target);
         }
-        return getNextJsonValue(target, referenceToken.toString());
+        return current;
     }
 
     private JsonValue getNextJsonValue(JsonValue target, String referenceToken) {
         if (target.getValueType() == JsonValue.ValueType.OBJECT) {
-            JsonValue value = ((JsonObject)target).get(referenceToken);
-            if(value == null) {
-                throw new IllegalArgumentException("Illegal reference token="+referenceToken+" for value="+target);
-            }
-            return value;
+            return ((JsonObject) target).get(referenceToken);
         } else if (target.getValueType() == JsonValue.ValueType.ARRAY) {
-            return ((JsonArray)target).get(Integer.parseInt(referenceToken));
+            return ((JsonArray) target).get(Integer.parseInt(referenceToken));
         } else {
-            throw new IllegalArgumentException("Illegal reference token="+referenceToken+" for value="+target);
+            throw new IllegalArgumentException("Illegal reference token="
+                    + referenceToken + " for value=" + target);
         }
+    }
+
+    @Override
+    public String toString() {
+        return "JsonPointer [pointer=" + pointer + "]";
     }
 }
