@@ -1,5 +1,7 @@
 package javax.json;
 
+import javax.json.JsonValue.ValueType;
+
 public class JsonPointer {
 
     private String pointer;
@@ -69,22 +71,66 @@ public class JsonPointer {
      * @throws IndexOutOfBoundsException
      *             if the index to the array is out of range
      */
-    public JsonStructure add(JsonStructure target, JsonValue value) {
-        JsonObjectBuilder objectBuilder = traverseAndCopyJsonObject(target, 1, value);
-        return objectBuilder.build();
+    public JsonValue add(JsonStructure target, JsonValue value) {
+        JsonValue modifiedNode = traverseAndCopyJsonObject(target, 1, value);
+        return modifiedNode;
     }
 
-    private JsonObjectBuilder traverseAndCopyJsonObject(JsonValue current, int currentTokenIndex, JsonValue value) {
+    private JsonValue traverseAndCopyJsonObject(JsonValue current, int currentTokenIndex, JsonValue value) {
         //trivial case
         if(currentTokenIndex == tokens.length-1) {
-            JsonObjectBuilder objectBuilder = Json
+
+            if (current.getValueType() == ValueType.OBJECT) {
+
+                JsonObjectBuilder objectBuilder = Json
                     .createObjectBuilder((JsonObject) current);
             objectBuilder.add(tokens[tokens.length-1], value);
-            return objectBuilder;
+            return objectBuilder.build();
+
+            } else if(current.getValueType() == ValueType.ARRAY) {
+
+                JsonArray currentArray = (JsonArray) current;
+                JsonArrayBuilder arrayBuilder = Json.createArrayBuilder(currentArray);
+                int position = getPositionToInsert(currentArray);
+                arrayBuilder.add(position, value);
+                return arrayBuilder.build();
+
+            } else {
+                throw new IllegalArgumentException("Illegal reference token="
+                        + tokens[currentTokenIndex] + " for value=" + value);
+            }
         } else {
-            JsonObjectBuilder copiedObject = traverseAndCopyJsonObject(getNextJsonValue(current, tokens[currentTokenIndex]), currentTokenIndex + 1, value);
-            return Json.createObjectBuilder((JsonObject)current).add(tokens[currentTokenIndex], copiedObject);
+            //not trivial case probably it can be refactored to be pretty similar to trivial case
+            JsonValue copiedObject = traverseAndCopyJsonObject(getNextJsonValue(current, tokens[currentTokenIndex]), currentTokenIndex + 1, value);
+
+            if(current.getValueType() == ValueType.OBJECT) {
+
+                return Json.createObjectBuilder((JsonObject)current).add(tokens[currentTokenIndex], copiedObject).build();
+
+            } else if (current.getValueType() == ValueType.ARRAY) {
+
+                JsonArray currentArray = (JsonArray) current;
+                JsonArrayBuilder arrayBuilder = Json.createArrayBuilder(currentArray);
+                int position = getPositionToInsert(currentArray);
+                arrayBuilder.add(position, copiedObject);
+                return arrayBuilder.build();
+
+            } else {
+                throw new IllegalArgumentException("Illegal reference token="
+                        + tokens[currentTokenIndex] + " for value=" + value);
+            }
         }
+    }
+
+    private int getPositionToInsert(JsonArray currentArray) {
+        String positionString = tokens[tokens.length-1];
+        int position = 0;
+        if("-".equals(positionString)) {
+            position = currentArray.size();
+        } else {
+            position = Integer.parseInt(positionString);
+        }
+        return position;
     }
     
     public JsonValue getValue(JsonValue target) {

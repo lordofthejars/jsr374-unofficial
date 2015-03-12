@@ -26,7 +26,22 @@ public class JsonPointerAddOperationTest {
         JsonObject modified = (JsonObject) pointer.add(buildPerson(), patch.get("value"));
         assertThat(modified, is(buildExpectedPerson()));
     }
-    
+
+    @Test
+    public void shouldAddElementAtPosition() {
+        JsonObject patch = buildArrayPatchInPosition();
+        JsonPointer pointer = new JsonPointer(patch.getString("path"));
+        JsonObject modified = (JsonObject) pointer.add(buildPerson(), patch.get("value"));
+        assertThat(modified, is(buildExpectedPersonConcreteArrayPosition()));
+    }
+
+    @Test
+    public void shouldAddElementAtLastPosition() {
+        JsonObject patch = buildArrayPatchInLastPosition();
+        JsonPointer pointer = new JsonPointer(patch.getString("path"));
+        JsonObject modified = (JsonObject) pointer.add(buildPerson(), patch.get("value"));
+        assertThat(modified, is(buildExpectedPersonArrayLastPosition()));
+    }
     static JsonObject buildAddress() {
         return Json.createObjectBuilder()
                 .add("streetAddress", "21 2nd Street")
@@ -48,6 +63,24 @@ public class JsonPointerAddOperationTest {
                 .add("op", "add")
                 .add("path", "/streetAddress")
                 .add("value", "myaddress")
+                .build();
+    }
+    static JsonObject buildArrayPatchInPosition() {
+        return Json.createObjectBuilder()
+                .add("op", "add")
+                .add("path", "/phoneNumber/0")
+                .add("value", Json.createObjectBuilder()
+                        .add("type", "home")
+                        .add("number", "200 555-1234"))
+                .build();
+    }
+    static JsonObject buildArrayPatchInLastPosition() {
+        return Json.createObjectBuilder()
+                .add("op", "add")
+                .add("path", "/phoneNumber/-")
+                .add("value", Json.createObjectBuilder()
+                        .add("type", "home")
+                        .add("number", "200 555-1234"))
                 .build();
     }
     static JsonObject buildExpectedAddress() {
@@ -75,6 +108,50 @@ public class JsonPointerAddOperationTest {
                         .add(Json.createObjectBuilder()
                                 .add("type", "fax")
                                 .add("number", "646 555-4567")))
+                .build();
+    }
+    static JsonObject buildExpectedPersonConcreteArrayPosition() {
+        return Json.createObjectBuilder()
+                .add("firstName", "John")
+                .add("lastName", "Smith")
+                .add("age", 25)
+                .add("address", Json.createObjectBuilder()
+                        .add("streetAddress", "21 2nd Street")
+                        .add("city", "New York")
+                        .add("state", "NY")
+                        .add("postalCode", "10021"))
+                .add("phoneNumber", Json.createArrayBuilder()
+                        .add((Json.createObjectBuilder()
+                                .add("type", "home")
+                                .add("number", "200 555-1234")))
+                        .add(Json.createObjectBuilder()
+                                .add("type", "home")
+                                .add("number", "212 555-1234"))
+                        .add(Json.createObjectBuilder()
+                                .add("type", "fax")
+                                .add("number", "646 555-4567")))
+                .build();
+    }
+    static JsonObject buildExpectedPersonArrayLastPosition() {
+        return Json.createObjectBuilder()
+                .add("firstName", "John")
+                .add("lastName", "Smith")
+                .add("age", 25)
+                .add("address", Json.createObjectBuilder()
+                        .add("streetAddress", "21 2nd Street")
+                        .add("city", "New York")
+                        .add("state", "NY")
+                        .add("postalCode", "10021"))
+                .add("phoneNumber", Json.createArrayBuilder()
+                        .add(Json.createObjectBuilder()
+                                .add("type", "home")
+                                .add("number", "212 555-1234"))
+                        .add(Json.createObjectBuilder()
+                                .add("type", "fax")
+                                .add("number", "646 555-4567"))
+                         .add(Json.createObjectBuilder()
+                                .add("type", "home")
+                                .add("number", "200 555-1234")))
                 .build();
     }
     static JsonObject buildExpectedPerson() {
