@@ -9,11 +9,11 @@ import javax.json.JsonPointer;
 
 import org.junit.Test;
 
-public class JsonPointerAddOperationTest {
+public class JsonPointerOperationsTest {
 
     @Test
     public void shouldUpdateSimpleObject() {
-        JsonObject patch = buildSimplePatch();
+        JsonObject patch = buildSimpleAddPatch();
         JsonPointer pointer = new JsonPointer(patch.getString("path"));
         JsonObject modified = (JsonObject) pointer.add(buildAddress(), patch.get("value"));
         assertThat(modified, is(buildExpectedAddress()));
@@ -21,7 +21,7 @@ public class JsonPointerAddOperationTest {
 
     @Test
     public void shouldUpdateComplexObjects() {
-        JsonObject patch = buildComplexPatch();
+        JsonObject patch = buildComplexAddPatch();
         JsonPointer pointer = new JsonPointer(patch.getString("path"));
         JsonObject modified = (JsonObject) pointer.add(buildPerson(), patch.get("value"));
         assertThat(modified, is(buildExpectedPerson()));
@@ -29,7 +29,7 @@ public class JsonPointerAddOperationTest {
 
     @Test
     public void shouldAddElementAtPosition() {
-        JsonObject patch = buildArrayPatchInPosition();
+        JsonObject patch = buildArrayAddPatchInPosition();
         JsonPointer pointer = new JsonPointer(patch.getString("path"));
         JsonObject modified = (JsonObject) pointer.add(buildPerson(), patch.get("value"));
         assertThat(modified, is(buildExpectedPersonConcreteArrayPosition()));
@@ -37,10 +37,32 @@ public class JsonPointerAddOperationTest {
 
     @Test
     public void shouldAddElementAtLastPosition() {
-        JsonObject patch = buildArrayPatchInLastPosition();
+        JsonObject patch = buildArrayAddPatchInLastPosition();
         JsonPointer pointer = new JsonPointer(patch.getString("path"));
         JsonObject modified = (JsonObject) pointer.add(buildPerson(), patch.get("value"));
         assertThat(modified, is(buildExpectedPersonArrayLastPosition()));
+    }
+
+    @Test
+    public void shouldRemoveSimpleAttribute() {
+        JsonObject patch = buildSimpleRemovePatch();
+        JsonPointer pointer = new JsonPointer(patch.getString("path"));
+        JsonObject modified = (JsonObject) pointer.remove(buildAddress());
+        assertThat(modified, is(buildExpectedRemovedAddress()));
+    }
+    @Test
+    public void shouldRemoveComplexObjects() {
+        JsonObject patch = buildComplexRemovePatch();
+        JsonPointer pointer = new JsonPointer(patch.getString("path"));
+        JsonObject modified = (JsonObject) pointer.remove(buildPerson());
+        assertThat(modified, is(buildExpectedPersonWithoutStreetAddress()));
+    }
+    @Test
+    public void shouldRemoveElementAtPosition() {
+        JsonObject patch = buildArrayRemovePatchInPosition();
+        JsonPointer pointer = new JsonPointer(patch.getString("path"));
+        JsonObject modified = (JsonObject) pointer.remove(buildPerson());
+        assertThat(modified, is(buildPersonWithoutFirstPhone()));
     }
     static JsonObject buildAddress() {
         return Json.createObjectBuilder()
@@ -50,22 +72,39 @@ public class JsonPointerAddOperationTest {
                 .add("postalCode", "10021")
                 .build();
     }
-    
-    static JsonObject buildComplexPatch() {
+    static JsonObject buildComplexRemovePatch() {
+        return Json.createObjectBuilder()
+                .add("op", "remove")
+                .add("path", "/address/streetAddress")
+                .build();
+    }
+    static JsonObject buildSimpleRemovePatch() {
+        return Json.createObjectBuilder()
+                .add("op", "remove")
+                .add("path", "/streetAddress")
+                .build();
+    }
+    static JsonObject buildArrayRemovePatchInPosition() {
+        return Json.createObjectBuilder()
+                .add("op", "add")
+                .add("path", "/phoneNumber/0")
+                .build();
+    }
+    static JsonObject buildComplexAddPatch() {
         return Json.createObjectBuilder()
                 .add("op", "add")
                 .add("path", "/address/streetAddress")
                 .add("value", "myaddress")
                 .build();
     }
-    static JsonObject buildSimplePatch() {
+    static JsonObject buildSimpleAddPatch() {
         return Json.createObjectBuilder()
                 .add("op", "add")
                 .add("path", "/streetAddress")
                 .add("value", "myaddress")
                 .build();
     }
-    static JsonObject buildArrayPatchInPosition() {
+    static JsonObject buildArrayAddPatchInPosition() {
         return Json.createObjectBuilder()
                 .add("op", "add")
                 .add("path", "/phoneNumber/0")
@@ -74,13 +113,20 @@ public class JsonPointerAddOperationTest {
                         .add("number", "200 555-1234"))
                 .build();
     }
-    static JsonObject buildArrayPatchInLastPosition() {
+    static JsonObject buildArrayAddPatchInLastPosition() {
         return Json.createObjectBuilder()
                 .add("op", "add")
                 .add("path", "/phoneNumber/-")
                 .add("value", Json.createObjectBuilder()
                         .add("type", "home")
                         .add("number", "200 555-1234"))
+                .build();
+    }
+    static JsonObject buildExpectedRemovedAddress() {
+        return Json.createObjectBuilder()
+                .add("city", "New York")
+                .add("state", "NY")
+                .add("postalCode", "10021")
                 .build();
     }
     static JsonObject buildExpectedAddress() {
@@ -105,6 +151,22 @@ public class JsonPointerAddOperationTest {
                         .add(Json.createObjectBuilder()
                                 .add("type", "home")
                                 .add("number", "212 555-1234"))
+                        .add(Json.createObjectBuilder()
+                                .add("type", "fax")
+                                .add("number", "646 555-4567")))
+                .build();
+    }
+    static JsonObject buildPersonWithoutFirstPhone() {
+        return Json.createObjectBuilder()
+                .add("firstName", "John")
+                .add("lastName", "Smith")
+                .add("age", 25)
+                .add("address", Json.createObjectBuilder()
+                        .add("streetAddress", "21 2nd Street")
+                        .add("city", "New York")
+                        .add("state", "NY")
+                        .add("postalCode", "10021"))
+                .add("phoneNumber", Json.createArrayBuilder()
                         .add(Json.createObjectBuilder()
                                 .add("type", "fax")
                                 .add("number", "646 555-4567")))
@@ -152,6 +214,24 @@ public class JsonPointerAddOperationTest {
                          .add(Json.createObjectBuilder()
                                 .add("type", "home")
                                 .add("number", "200 555-1234")))
+                .build();
+    }
+    static JsonObject buildExpectedPersonWithoutStreetAddress() {
+        return Json.createObjectBuilder()
+                .add("firstName", "John")
+                .add("lastName", "Smith")
+                .add("age", 25)
+                .add("address", Json.createObjectBuilder()
+                        .add("city", "New York")
+                        .add("state", "NY")
+                        .add("postalCode", "10021"))
+                .add("phoneNumber", Json.createArrayBuilder()
+                        .add(Json.createObjectBuilder()
+                                .add("type", "home")
+                                .add("number", "212 555-1234"))
+                        .add(Json.createObjectBuilder()
+                                .add("type", "fax")
+                                .add("number", "646 555-4567")))
                 .build();
     }
     static JsonObject buildExpectedPerson() {
